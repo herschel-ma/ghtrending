@@ -58,7 +58,21 @@ pub fn parse_html(content: String) -> Vec<Repository> {
         repo.link = url.clone();
         url = url.replace(repo_link, "");
 
-        repo.name = a_link.text().collect::<String>().trim().to_owned();
+        let tmp = a_link
+            .text()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|e| e.to_string().trim().to_owned())
+            .collect::<String>()
+            .to_owned();
+        let res = tmp
+            .split(' ')
+            .collect::<Vec<_>>()
+            .iter()
+            .map(|&x| x.to_string().trim().to_string())
+            .collect::<String>();
+
+        repo.name = res;
 
         let div = per_repo.select(&div_selector).nth(2).unwrap();
         if let Some(span) = div.select(&program_span_sel).next() {
