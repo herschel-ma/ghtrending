@@ -56,6 +56,8 @@ pub fn parse_html(content: String) -> Vec<Repository> {
         let repo_link = a_link.value().attr("href").unwrap();
         url.push_str(repo_link);
         repo.link = url.clone();
+        url = url.replace(repo_link, "");
+
         repo.name = a_link.text().collect::<String>().trim().to_owned();
 
         let div = per_repo.select(&div_selector).nth(2).unwrap();
