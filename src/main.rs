@@ -42,7 +42,12 @@ pub fn parse_html(content: String) -> Vec<Repository> {
         let mut repo = Repository::new();
         assert_eq!(per_repo.value().name(), "article");
         if let Some(p) = per_repo.select(&p_selector).next() {
-            repo.description = p.text().collect();
+            repo.description = p
+                .text()
+                .collect::<Vec<_>>()
+                .into_iter()
+                .map(|x| x.to_string().trim().to_string())
+                .collect();
         }
 
         let a_link = per_repo
