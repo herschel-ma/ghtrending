@@ -1,6 +1,11 @@
 use scraper::{Html, Selector};
 
-#[allow(dead_code)]
+#[derive(Debug, Default)]
+pub struct Collaborator {
+    name: String,
+    avatar: String,
+}
+
 #[derive(Debug, Default)]
 pub struct Repository {
     author: String,
@@ -8,8 +13,10 @@ pub struct Repository {
     link: String,
     description: String,
     star_count: u32,
-    language: String,
+    add: String,
     forks: u32,
+    language: String,
+    build_by: Vec<Collaborator>,
 }
 
 #[allow(dead_code)]
@@ -20,26 +27,22 @@ pub struct Developer {
     description: String,
 }
 
-impl Repository {
-    fn new() -> Self {
-        Repository::default()
-    }
-}
-
 pub fn parse_html(content: String) -> Vec<Repository> {
     let doucument = Html::parse_document(&content);
-    let article_selector = Selector::parse(r#"article[class="Box-row"]"#).unwrap();
     let p_selector = Selector::parse(r#"p"#).unwrap();
-    let h2_selector = Selector::parse(r#"h2[class="h3 lh-condensed"]"#).unwrap();
     let a_selector = Selector::parse(r#"a"#).unwrap();
+    let img_selector = Selector::parse(r#"img"#).unwrap();
     let div_selector = Selector::parse(r#"div"#).unwrap();
+    let span_selector = Selector::parse(r#"span"#).unwrap();
+    let h2_selector = Selector::parse(r#"h2[class="h3 lh-condensed"]"#).unwrap();
+    let article_selector = Selector::parse(r#"article[class="Box-row"]"#).unwrap();
     let program_span_sel = Selector::parse(r#"span[itemprop="programmingLanguage"]"#).unwrap();
 
     let mut repos: Vec<Repository> = Vec::new();
     let mut url: String = "https://github.com".to_string();
 
     for per_repo in doucument.select(&article_selector) {
-        let mut repo = Repository::new();
+        let mut repo = Repository::default();
         assert_eq!(per_repo.value().name(), "article");
         if let Some(p) = per_repo.select(&p_selector).next() {
             repo.description = p
@@ -112,6 +115,39 @@ pub fn parse_html(content: String) -> Vec<Repository> {
             .collect::<String>();
         repo.forks = fork_count.replace(',', "").trim().parse().unwrap();
 
+        let mut spans: Vec<_> = per_repo
+            .select(&span_selector)
+            .filter(|span| span.value().attr("itemprop").is_none())
+            .collect();
+
+        spans.reverse();
+        repo.add = spans
+            .first()
+            .unwrap()
+            .text()
+            .collect::<String>()
+            .trim()
+            .to_string();
+
+        let mut collaborators = vec![];
+
+        for col_a_link in spans.get(1).unwrap().select(&a_selector) {
+            let mut collaborator = Collaborator::default();
+            let col_avator_img = col_a_link.select(&img_selector).next().unwrap();
+            collaborator.name = col_avator_img
+                .value()
+                .attr("alt")
+                .unwrap()
+                .to_string()
+                .split('@')
+                .collect();
+
+            collaborator.avatar = col_avator_img.value().attr("src").unwrap().to_string();
+
+            collaborators.push(collaborator);
+        }
+        repo.build_by = collaborators;
+
         repos.push(repo);
     }
 
@@ -127,7 +163,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let text = res.text().await?;
     let repos = parse_html(text);
-    dbg!("{:?}", repos);
+    dbg!(repos);
 
     Ok(())
 }
