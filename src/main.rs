@@ -70,14 +70,10 @@ pub fn parse_html(content: String) -> Vec<Repository> {
             .map(|e| e.to_string().trim().to_owned())
             .collect::<String>()
             .to_owned();
-        let res = tmp
-            .split(' ')
-            .collect::<Vec<_>>()
-            .iter()
-            .map(|&x| x.to_string().trim().to_string())
-            .collect::<String>();
 
-        repo.name = res;
+        let name_vec = tmp.split(' ').collect::<Vec<_>>();
+        repo.author = name_vec[0].to_string();
+        repo.name = name_vec[1].to_string().replace('/', "");
 
         let div = per_repo.select(&div_selector).nth(2).unwrap();
         if let Some(span) = div.select(&program_span_sel).next() {
