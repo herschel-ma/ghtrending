@@ -1,4 +1,5 @@
 use scraper::{Html, Selector};
+use serde::Serialize;
 use std::fmt::Debug;
 
 trait Trending: Debug + Default {
@@ -7,13 +8,13 @@ trait Trending: Debug + Default {
         Self: Sized;
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Collaborator {
     name: String,
     avatar: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct Repository {
     author: String,
     name: String,
@@ -172,7 +173,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let text = res.text().await?;
     let repos = Repository::parse_html(text);
-    dbg!(repos);
+    let repo_json = serde_json::to_string_pretty(&repos).unwrap();
+    println!("{repo_json}");
 
     Ok(())
 }
