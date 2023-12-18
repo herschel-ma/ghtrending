@@ -27,10 +27,10 @@ pub struct Repository {
     build_by: Vec<Collaborator>,
 }
 
-#[allow(dead_code)]
+#[derive(Debug, Default, Serialize)]
 pub struct Developer {
     name: String,
-    username: String,
+    avatar: String,
     popular_repo: String,
     description: String,
 }
@@ -164,17 +164,88 @@ impl Trending for Repository {
     }
 }
 
+impl Trending for Developer {
+    fn parse_html(content: String) -> Vec<Self> {
+        let document = Html::parse_document(&content);
+        let article_sel = Selector::parse(r#"article[class="Box-row d-flex"]"#).unwrap();
+        let art_sel = Selector::parse(r#"article"#).unwrap();
+        let div_sel = Selector::parse(r#"div"#).unwrap();
+        let img_sel = Selector::parse(r#"img"#).unwrap();
+        let h1_sel = Selector::parse(r#"h1"#).unwrap();
+        let a_sel = Selector::parse(r#"a"#).unwrap();
+
+        let mut developers = vec![];
+        let mut url = "https://github.com".to_string();
+
+        for article in document.select(&article_sel) {
+            let mut dev = Self {
+                avatar: article
+                    .select(&img_sel)
+                    .next()
+                    .unwrap()
+                    .value()
+                    .attr("src")
+                    .unwrap()
+                    .to_string(),
+                name: article
+                    .select(&h1_sel)
+                    .next()
+                    .unwrap()
+                    .text()
+                    .collect::<String>()
+                    .trim()
+                    .to_string(),
+                ..Default::default()
+            };
+
+            if let Some(s) = article.select(&art_sel).next() {
+                if let Some(h1) = s.select(&h1_sel).next() {
+                    let href = h1
+                        .select(&a_sel)
+                        .next()
+                        .unwrap()
+                        .value()
+                        .attr("href")
+                        .unwrap();
+                    url.push_str(href);
+                    dev.popular_repo = url.to_string();
+                    url = url.replace(href, "");
+                }
+            }
+
+            if let Some(s) = article.select(&art_sel).next() {
+                if let Some(div) = s.select(&div_sel).nth(1) {
+                    dev.description = div.text().collect::<String>().trim().to_string();
+                }
+            }
+            developers.push(dev);
+        }
+
+        developers
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proxy = reqwest::Proxy::all("http://127.0.0.1:7897")?;
     let client = reqwest::Client::builder().proxy(proxy).build()?;
+
     let res = client.get("https://github.com/trending").send().await?;
     assert!(res.status().is_success());
-
     let text = res.text().await?;
     let repos = Repository::parse_html(text);
     let repo_json = serde_json::to_string_pretty(&repos).unwrap();
     println!("{repo_json}");
+
+    let res = client
+        .get("https://github.com/trending/developers")
+        .send()
+        .await?;
+    assert!(res.status().is_success());
+    let text = res.text().await?;
+    let developers = Developer::parse_html(text);
+    let developer_json = serde_json::to_string_pretty(&developers).unwrap();
+    println!("{developer_json}");
 
     Ok(())
 }
