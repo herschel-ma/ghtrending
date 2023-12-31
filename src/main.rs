@@ -1,6 +1,7 @@
 use scraper::{Html, Selector};
 use serde::Serialize;
 use std::fmt::Debug;
+use tracing::info;
 
 trait Trending: Debug + Default {
     fn parse_html(content: String) -> Vec<Self>
@@ -227,6 +228,7 @@ impl Trending for Developer {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt::init();
     let proxy = reqwest::Proxy::all("http://127.0.0.1:7897")?;
     let client = reqwest::Client::builder().proxy(proxy).build()?;
 
@@ -235,7 +237,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let text = res.text().await?;
     let repos = Repository::parse_html(text);
     let repo_json = serde_json::to_string_pretty(&repos).unwrap();
-    println!("{repo_json}");
+    info!("{repo_json}");
 
     let res = client
         .get("https://github.com/trending/developers")
@@ -245,7 +247,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let text = res.text().await?;
     let developers = Developer::parse_html(text);
     let developer_json = serde_json::to_string_pretty(&developers).unwrap();
-    println!("{developer_json}");
+    info!("{developer_json}");
 
     Ok(())
 }
